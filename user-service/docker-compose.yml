@@ -1,28 +1,39 @@
-version: '3'
+version: '3.8'
+
 services:
   db:
-    image: postgres:13
+    image: postgres:15
+    container_name: postgres_db
     environment:
-      POSTGRES_USER: youruser
+      POSTGRES_USER: yourusername
       POSTGRES_PASSWORD: yourpassword
-      POSTGRES_DB: yourdb
+      POSTGRES_DB: ecommerce
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
-      - db_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - ecommerce-network
 
   user-service:
-    build: ./user-service
+    build: .
+    container_name: user_service
     ports:
-      - "8080:8080"
-    environment:
-      DB_HOST: db
-      DB_USER: youruser
-      DB_PASSWORD: yourpassword
-      DB_NAME: yourdb
-      DB_PORT: 5432
+      - '8080:8080'
     depends_on:
       - db
+    environment:
+      DB_HOST: db
+      DB_USER: yourusername
+      DB_PASSWORD: yourpassword
+      DB_NAME: ecommerce
+      DB_PORT: 5432
+    networks:
+      - ecommerce-network
 
 volumes:
-  db_data:
+  postgres_data:
+
+networks:
+  ecommerce-network:
+    driver: bridge
