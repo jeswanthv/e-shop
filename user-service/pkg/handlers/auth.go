@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"net/http"
+	"time"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"github.com/jeswanthv/e-shop/user-service/pkg/models"
 	"golang.org/x/crypto/bcrypt"
@@ -13,8 +15,49 @@ type UserHandler struct {
     DB *gorm.DB
 }
 
+var jwtSecret = []byte("your_secret_key")
+
 func NewUserHandler(db *gorm.DB) *UserHandler {
     return &UserHandler{DB: db}
+}
+
+// LoginUser handles user login
+func (h *UserHandler) LoginUser(c *gin.Context) {
+    var req struct {
+        Email    string `json:"email" binding:"required"`
+        Password string `json:"password" binding:"required"`
+    }
+    
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+        return
+    }
+
+    var user models.User
+    if err := h.DB.Where("email = ?", req.Email).First(&user).Error; err != nil {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+        return
+    }
+
+    if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+        return
+    }
+
+    token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+        "user_id": user.ID,
+        "exp":     time.Now().Add(time.Hour * 72).Unix(), // Token expires in 72 hours
+    })
+
+    tokenString, err := token.SignedString(jwtSecret)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "token": tokenString,
+    })
 }
 
 // RegisterUser handles user registration
